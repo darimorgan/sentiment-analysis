@@ -11,11 +11,11 @@ Fine-tuned BERT with ArcFace loss + SVM ensemble for 5-class sentiment classific
 
 ## Results
 
-| Model | Test F1 |
-|-------|---------|
-| Frozen BERT + Logistic Regression | 0.620 |
-| Frozen BERT + CatBoost | ~0.60 |
-| **Fine-tuned BERT + SVC Ensemble** | **0.660** |
+| Model | Test F1    |
+|-------|------------|
+| Frozen BERT + Logistic Regression | 0.6200     |
+| Frozen BERT + CatBoost | ~0.5972    |
+| **Fine-tuned BERT + SVC Ensemble** | **0.6599** |
 
 ## Approach
 
