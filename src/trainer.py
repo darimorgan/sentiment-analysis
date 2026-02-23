@@ -1,8 +1,6 @@
 """Training utilities for BERT fine-tuning."""
 
-from pathlib import Path
 
-import numpy as np
 import torch
 from sklearn.metrics import f1_score
 from torch.optim import AdamW
@@ -20,9 +18,7 @@ class BertTrainer:
     def __init__(self, config: Config):
         self.config = config
 
-    def get_optimizer_with_llrd(
-        self, model: StableBertClassifier
-    ) -> AdamW:
+    def get_optimizer_with_llrd(self, model: StableBertClassifier) -> AdamW:
         """
         Create optimizer with Layer-wise Learning Rate Decay (LLRD).
 
@@ -170,9 +166,7 @@ class BertTrainer:
         model.load_state_dict(torch.load(best_model_path))
         return model
 
-    def _evaluate(
-        self, model: StableBertClassifier, data_loader: DataLoader
-    ) -> float:
+    def _evaluate(self, model: StableBertClassifier, data_loader: DataLoader) -> float:
         """Evaluate model and return weighted F1 score."""
         model.eval()
         all_preds = []

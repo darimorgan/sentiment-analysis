@@ -1,6 +1,5 @@
 """BERT model with ArcFace loss for sentiment classification."""
 
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -116,8 +115,8 @@ class StableBertClassifier(nn.Module):
         self,
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
-        labels: Optional[torch.Tensor] = None,
-    ) -> tuple[Optional[torch.Tensor], torch.Tensor, torch.Tensor]:
+        labels: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         """
         Forward pass.
 

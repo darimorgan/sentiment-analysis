@@ -1,6 +1,5 @@
 """Feature extraction from fine-tuned BERT for SVC training."""
 
-from typing import Optional
 
 import numpy as np
 import torch
@@ -21,7 +20,7 @@ class FeatureExtractor:
         self,
         model: StableBertClassifier,
         data_loader: DataLoader,
-    ) -> tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """
         Extract hidden features from BERT model.
 

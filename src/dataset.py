@@ -1,6 +1,5 @@
 """Dataset class for sentiment analysis."""
 
-from typing import Optional
 
 import torch
 from torch.utils.data import Dataset
@@ -13,7 +12,7 @@ class RatingDataset(Dataset):
     def __init__(
         self,
         texts: list[str],
-        targets: Optional[list[int]],
+        targets: list[int] | None,
         tokenizer: PreTrainedTokenizer,
         max_length: int = 512,
     ):

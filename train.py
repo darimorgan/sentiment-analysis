@@ -58,6 +58,7 @@ def main(args: argparse.Namespace) -> None:
         data_dir=Path(args.data_dir),
         output_dir=Path(args.output_dir),
         model_dir=Path(args.model_dir),
+        model_name=args.model_name,
         num_epochs=args.epochs,
         num_folds=args.folds,
         batch_size=args.batch_size,
@@ -78,24 +79,32 @@ def main(args: argparse.Namespace) -> None:
     print(f"Total samples: {len(texts)}")
     print(f"Class distribution: {np.bincount(targets)}")
 
-    # Train/test split
-    train_texts, test_texts, train_targets, test_targets = train_test_split(
-        texts, targets, test_size=0.1, random_state=42, stratify=targets
-    )
+    if args.split == "yes":
+        # Train/test split
+        train_texts, test_texts, train_targets, test_targets = train_test_split(
+            texts, targets, test_size=0.1, random_state=42, stratify=targets
+        )
 
-    print(f"Train: {len(train_texts)}, Test: {len(test_texts)}")
+        print(f"Train: {len(train_texts)}, Test: {len(test_texts)}")
 
-    # Save splits
-    train_df = pd.DataFrame({
-        config.text_column: train_texts,
-        config.label_column: np.array(train_targets) + 1,
-    })
-    test_df = pd.DataFrame({
-        config.text_column: test_texts,
-        config.label_column: np.array(test_targets) + 1,
-    })
-    train_df.to_csv(config.output_dir / "train_split.csv", index=False)
-    test_df.to_csv(config.output_dir / "test_split.csv", index=False)
+        train_df = pd.DataFrame(
+            {
+                config.text_column: train_texts,
+                config.label_column: np.array(train_targets) + 1,
+            }
+        )
+        test_df = pd.DataFrame(
+            {
+                config.text_column: test_texts,
+                config.label_column: np.array(test_targets) + 1,
+            }
+        )
+        train_df.to_csv(config.output_dir / "train_split.csv", index=False)
+        test_df.to_csv(config.output_dir / "test_split.csv", index=False)
+    else:
+        train_texts = texts
+        train_targets = targets
+        print("Using all data for training (no test split).")
 
     # Initialize
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
@@ -103,7 +112,9 @@ def main(args: argparse.Namespace) -> None:
     feature_extractor = FeatureExtractor(config)
 
     # Create full dataset
-    full_dataset = RatingDataset(train_texts, train_targets, tokenizer, config.max_length)
+    full_dataset = RatingDataset(
+        train_texts, train_targets, tokenizer, config.max_length
+    )
 
     # Cross-validation
     skf = StratifiedKFold(n_splits=config.num_folds, shuffle=True, random_state=42)
@@ -173,11 +184,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train sentiment analysis model")
     parser.add_argument("--data-path", type=str, required=True, help="Path to CSV data")
     parser.add_argument("--data-dir", type=str, default="data", help="Data directory")
-    parser.add_argument("--output-dir", type=str, default="outputs", help="Output directory")
-    parser.add_argument("--model-dir", type=str, default="models", help="Model directory")
+    parser.add_argument(
+        "--output-dir", type=str, default="outputs", help="Output directory"
+    )
+    parser.add_argument(
+        "--model-dir", type=str, default="models", help="Model directory"
+    )
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default="DeepPavlov/rubert-base-cased-conversational",
+        help="Pretrained model name or path",
+    )
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs")
     parser.add_argument("--folds", type=int, default=5, help="Number of CV folds")
     parser.add_argument("--batch-size", type=int, default=8, help="Batch size")
+
+    parser.add_argument(
+        "--split",
+        type=str,
+        choices=["yes", "no"],
+        default="yes",
+        help="'yes' to split data into train/test (default), 'no' to use all data for training",
+    )
 
     args = parser.parse_args()
     main(args)

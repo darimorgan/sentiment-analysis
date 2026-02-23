@@ -2,10 +2,10 @@
 
 from .config import Config
 from .dataset import RatingDataset
-from .model import StableArcFaceLoss, StableBertClassifier
-from .trainer import BertTrainer
 from .features import FeatureExtractor
 from .inference import SentimentPredictor
+from .model import StableArcFaceLoss, StableBertClassifier
+from .trainer import BertTrainer
 
 __all__ = [
     "Config",

@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import torch
 
@@ -49,7 +48,7 @@ class Config:
     label_column: str = "rate"
 
     # Device
-    device: Optional[torch.device] = None
+    device: torch.device | None = None
 
     def __post_init__(self):
         if self.device is None:

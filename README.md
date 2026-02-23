@@ -19,7 +19,7 @@ Fine-tuned BERT with ArcFace loss + SVM ensemble for 5-class sentiment classific
 
 ## Approach
 
-1. **Fine-tune BERT** (`DeepPavlov/rubert-base-cased-conversational`) with:
+1. **Fine-tune BERT** (default: `DeepPavlov/rubert-base-cased-conversational`, configurable via `--model-name`) with:
    - ArcFace loss for better class separation
    - Layer-wise Learning Rate Decay (LLRD)
    - Mixed precision training
@@ -68,7 +68,11 @@ uv sync --extra gpu
 ### Training
 
 ```bash
+# With default ruBERT model
 python train.py --data-path data/train.csv --epochs 3 --folds 5
+
+# With another HuggingFace model
+python train.py --data-path data/train.csv --model-name bert-base-multilingual-cased
 ```
 
 ### Inference
@@ -82,6 +86,9 @@ python predict.py --input-file data/test.csv --output-file predictions.csv
 
 # With evaluation
 python predict.py --input-file data/test.csv --label-column rate
+
+# With another model (must match the model used during training)
+python predict.py --text "Great product!" --model-name bert-base-multilingual-cased
 ```
 
 ### Interactive mode
@@ -104,9 +111,11 @@ Predicted Rating: 1/5
 - Imbalanced: 52.6% are 5-star ratings
 - Train/Test split: 90/10
 
+To use your own data, provide a CSV with `text` and `rate` columns.
+
 ## Requirements
 
 - Python 3.10+
 - PyTorch 2.0+
 - Transformers 4.35+
-- CUDA GPU (recommended)
+- CUDA GPU

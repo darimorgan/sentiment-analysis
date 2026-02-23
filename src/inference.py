@@ -1,7 +1,6 @@
 """Inference pipeline for sentiment prediction."""
 
 from pathlib import Path
-from typing import Union
 
 import joblib
 import numpy as np
@@ -22,7 +21,7 @@ class SentimentPredictor:
     def __init__(
         self,
         config: Config,
-        model_dir: Union[str, Path, None] = None,
+        model_dir: str | Path | None = None,
     ):
         self.config = config
         self.model_dir = Path(model_dir) if model_dir else config.model_dir
@@ -45,7 +44,9 @@ class SentimentPredictor:
                 dropout=self.config.dropout_rate,
                 hidden_dim=self.config.hidden_dim,
             )
-            bert_model.load_state_dict(torch.load(bert_path, map_location=self.config.device))
+            bert_model.load_state_dict(
+                torch.load(bert_path, map_location=self.config.device)
+            )
             bert_model.to(self.config.device)
             bert_model.eval()
             self.bert_models.append(bert_model)
@@ -55,14 +56,16 @@ class SentimentPredictor:
             svc_model = joblib.load(svc_path)
             self.svc_models.append(svc_model)
 
-        print(f"Loaded {len(self.bert_models)} BERT models and {len(self.svc_models)} SVC models")
+        print(
+            f"Loaded {len(self.bert_models)} BERT models and {len(self.svc_models)} SVC models"
+        )
 
     def predict(
         self,
         texts: list[str],
         batch_size: int = 8,
         return_all_predictions: bool = False,
-    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """
         Predict sentiment for texts using ensemble voting.
 
