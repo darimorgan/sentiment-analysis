@@ -51,10 +51,10 @@ class SentimentPredictor:
             bert_model.eval()
             self.bert_models.append(bert_model)
 
-            # Load SVC
-            svc_path = self.model_dir / f"fold_{fold_idx}_svc.joblib"
-            svc_model = joblib.load(svc_path)
-            self.svc_models.append(svc_model)
+            # Load classifier
+            clf_path = self.model_dir / f"fold_{fold_idx}_clf.joblib"
+            clf_model = joblib.load(clf_path)
+            self.svc_models.append(clf_model)
 
         print(
             f"Loaded {len(self.bert_models)} BERT models and {len(self.svc_models)} SVC models"

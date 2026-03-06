@@ -19,38 +19,54 @@ from src.features import FeatureExtractor
 from src.model import StableBertClassifier
 from src.trainer import BertTrainer
 
-# Optional: cuML for GPU-accelerated SVC
+# Optional: cuML for GPU-accelerated classifiers
 try:
     from cuml.svm import SVC
+    from cuml.linear_model import LogisticRegression
 
     USE_CUML = True
 except ImportError:
     from sklearn.svm import SVC
+    from sklearn.linear_model import LogisticRegression
 
     USE_CUML = False
 
 
-def train_svc(features: np.ndarray, targets: np.ndarray, config: Config) -> SVC:
-    """Train SVC on extracted BERT features."""
-    print("Training SVC...")
+def train_classifier(features: np.ndarray, targets: np.ndarray, config: Config, classifier_type: str):
+    """Train classifier (SVC or LogReg) on extracted BERT features."""
+    print(f"Training {classifier_type.upper()}...")
 
-    if USE_CUML:
-        svc = SVC(
-            C=config.svc_c,
-            kernel=config.svc_kernel,
-            gamma="auto",
-            probability=False,
-            cache_size=config.svc_cache_size,
-        )
-    else:
-        svc = SVC(
-            C=config.svc_c,
-            kernel=config.svc_kernel,
-            gamma="auto",
-        )
+    if classifier_type == "logreg":
+        if USE_CUML:
+            clf = LogisticRegression(
+                C=config.logreg_c,
+                penalty=config.logreg_penalty,
+                max_iter=config.logreg_max_iter,
+            )
+        else:
+            clf = LogisticRegression(
+                C=config.logreg_c,
+                penalty=config.logreg_penalty,
+                max_iter=config.logreg_max_iter,
+            )
+    else:  # svc
+        if USE_CUML:
+            clf = SVC(
+                C=config.svc_c,
+                kernel=config.svc_kernel,
+                gamma="auto",
+                probability=False,
+                cache_size=config.svc_cache_size,
+            )
+        else:
+            clf = SVC(
+                C=config.svc_c,
+                kernel=config.svc_kernel,
+                gamma="auto",
+            )
 
-    svc.fit(features, targets)
-    return svc
+    clf.fit(features, targets)
+    return clf
 
 
 def main(args: argparse.Namespace) -> None:
@@ -59,13 +75,16 @@ def main(args: argparse.Namespace) -> None:
         output_dir=Path(args.output_dir),
         model_dir=Path(args.model_dir),
         model_name=args.model_name,
+        num_classes=args.num_classes,
         num_epochs=args.epochs,
         num_folds=args.folds,
         batch_size=args.batch_size,
+        device=args.device,
     )
 
     print(f"Using device: {config.device}")
-    print(f"cuML SVC: {USE_CUML}")
+    print(f"cuML available: {USE_CUML}")
+    print(f"Classifier: {args.classifier}")
 
     # Load and preprocess data
     print(f"\nLoading data from {args.data_path}...")
@@ -156,19 +175,19 @@ def main(args: argparse.Namespace) -> None:
             trained_bert, val_loader
         )
 
-        # Train SVC
-        svc_model = train_svc(train_features, train_svm_targets, config)
-        joblib.dump(svc_model, config.model_dir / f"fold_{fold_idx}_svc.joblib")
+        # Train classifier
+        clf_model = train_classifier(train_features, train_svm_targets, config, args.classifier)
+        joblib.dump(clf_model, config.model_dir / f"fold_{fold_idx}_clf.joblib")
 
         # Evaluate ensemble
-        svc_preds = svc_model.predict(val_features)
-        ensemble_f1 = f1_score(val_targets_cv, svc_preds, average="weighted")
+        clf_preds = clf_model.predict(val_features)
+        ensemble_f1 = f1_score(val_targets_cv, clf_preds, average="weighted")
         fold_results.append(ensemble_f1)
 
         print(f"\nFold {fold_idx + 1} Ensemble F1: {ensemble_f1:.4f}")
 
         # Cleanup
-        del trained_bert, svc_model, train_features, val_features
+        del trained_bert, clf_model, train_features, val_features
         torch.cuda.empty_cache()
         gc.collect()
 
@@ -206,6 +225,26 @@ if __name__ == "__main__":
         choices=["yes", "no"],
         default="yes",
         help="'yes' to split data into train/test (default), 'no' to use all data for training",
+    )
+    parser.add_argument(
+        "--num-classes",
+        type=int,
+        default=5,
+        help="Number of classes (default: 5)",
+    )
+    parser.add_argument(
+        "--classifier",
+        type=str,
+        choices=["svc", "logreg"],
+        default="svc",
+        help="Classifier type: 'svc' or 'logreg' (default: svc)",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        choices=["cuda", "cpu", "mps", "auto"],
+        default="auto",
+        help="Device: 'cuda', 'cpu', 'mps', or 'auto' (default: auto)",
     )
 
     args = parser.parse_args()

@@ -101,7 +101,7 @@ class BertTrainer:
 
         model = model.to(self.config.device)
         optimizer = self.get_optimizer_with_llrd(model)
-        scaler = torch.amp.GradScaler("cuda")
+        scaler = torch.amp.GradScaler(self.config.device)
 
         num_training_steps = (
             len(train_loader) * self.config.num_epochs // self.config.accumulation_steps
@@ -132,7 +132,7 @@ class BertTrainer:
                 attention_mask = batch["attention_mask"].to(self.config.device)
                 labels = batch["labels"].to(self.config.device)
 
-                with torch.amp.autocast("cuda"):
+                with torch.amp.autocast(self.config.device):
                     loss, _, _ = model(input_ids, attention_mask, labels)
                     loss = loss / self.config.accumulation_steps
 

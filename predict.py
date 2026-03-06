@@ -14,6 +14,8 @@ def main(args: argparse.Namespace) -> None:
     config = Config(
         model_dir=Path(args.model_dir),
         model_name=args.model_name,
+        num_classes=args.num_classes,
+        device=args.device,
     )
 
     print(f"Using device: {config.device}")
@@ -78,6 +80,16 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--num-folds", type=int, default=5, help="Number of ensemble folds"
+    )
+    parser.add_argument(
+        "--num-classes", type=int, default=5, help="Number of classes"
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        choices=["cuda", "cpu", "mps", "auto"],
+        default="auto",
+        help="Device: 'cuda', 'cpu', 'mps', or 'auto' (default: auto)",
     )
     parser.add_argument(
         "--batch-size", type=int, default=8, help="Batch size for inference"

@@ -1,6 +1,6 @@
 # Russian Sentiment Analysis
 
-Fine-tuned BERT with ArcFace loss + SVM ensemble for 5-class sentiment classification on Russian text reviews.
+Fine-tuned BERT with ArcFace loss + SVC/LogReg ensemble for multi-class sentiment classification on Russian text reviews.
 
 ## Notebooks
 
@@ -27,7 +27,7 @@ Fine-tuned BERT with ArcFace loss + SVM ensemble for 5-class sentiment classific
 
 2. **Extract features** from fine-tuned BERT (384-dim hidden layer)
 
-3. **Train SVC** on extracted features
+3. **Train classifier** (SVC or LogReg) on extracted features
 
 4. **Ensemble** predictions from 5-fold cross-validation using majority voting
 
@@ -59,7 +59,7 @@ uv sync
 # With pip
 pip install -e .
 
-# For GPU-accelerated SVC (optional, requires RAPIDS)
+# For GPU-accelerated SVC/LogReg (optional, requires RAPIDS)
 uv sync --extra gpu
 ```
 
@@ -68,12 +68,37 @@ uv sync --extra gpu
 ### Training
 
 ```bash
-# With default ruBERT model
+# With default ruBERT model and SVC
 python train.py --data-path data/train.csv --epochs 3 --folds 5
+
+# With LogReg instead of SVC
+python train.py --data-path data/train.csv --classifier logreg
+
+# With different number of classes
+python train.py --data-path data/train.csv --num-classes 3
 
 # With another HuggingFace model
 python train.py --data-path data/train.csv --model-name bert-base-multilingual-cased
+
+# Force specific device
+python train.py --data-path data/train.csv --device cuda
+python train.py --data-path data/train.csv --device mps
+python train.py --data-path data/train.csv --device cpu
 ```
+
+#### Training Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--data-path` | required | Path to CSV data |
+| `--classifier` | `svc` | Classifier type: `svc` or `logreg` |
+| `--num-classes` | `5` | Number of classes |
+| `--epochs` | `3` | Number of training epochs |
+| `--folds` | `5` | Number of CV folds |
+| `--batch-size` | `8` | Batch size |
+| `--model-name` | `DeepPavlov/rubert-base-cased-conversational` | HuggingFace model |
+| `--split` | `yes` | `yes` to split train/test, `no` to use all data |
+| `--device` | `auto` | Device: `cuda`, `cpu`, `mps`, or `auto` |
 
 ### Inference
 
@@ -89,6 +114,12 @@ python predict.py --input-file data/test.csv --label-column rate
 
 # With another model (must match the model used during training)
 python predict.py --text "Great product!" --model-name bert-base-multilingual-cased
+
+# With different number of classes (must match training)
+python predict.py --input-file data/test.csv --num-classes 3
+
+# Force specific device
+python predict.py --input-file data/test.csv --device cuda
 ```
 
 ### Interactive mode
@@ -118,4 +149,4 @@ To use your own data, provide a CSV with `text` and `rate` columns.
 - Python 3.10+
 - PyTorch 2.0+
 - Transformers 4.35+
-- CUDA GPU
+- CUDA GPU, Apple Silicon (MPS), or CPU

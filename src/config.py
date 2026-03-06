@@ -38,6 +38,11 @@ class Config:
     svc_kernel: str = "rbf"
     svc_cache_size: int = 8000
 
+    # LogReg
+    logreg_c: float = 1.0
+    logreg_penalty: str = "l2"
+    logreg_max_iter: int = 2000
+
     # Paths
     data_dir: Path = field(default_factory=lambda: Path("data"))
     output_dir: Path = field(default_factory=lambda: Path("outputs"))
@@ -48,11 +53,16 @@ class Config:
     label_column: str = "rate"
 
     # Device
-    device: torch.device | None = None
+    device: str = "auto"
 
     def __post_init__(self):
-        if self.device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if self.device == "auto":
+            if torch.cuda.is_available():
+                self.device = "cuda"
+            elif torch.backends.mps.is_available():
+                self.device = "mps"
+            else:
+                self.device = "cpu"
 
         # Create directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
