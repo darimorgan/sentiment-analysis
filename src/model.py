@@ -20,7 +20,8 @@ class StableArcFaceLoss(nn.Module):
         num_classes: int,
         margin: float = 0.5,
         scale: float = 64.0,
-        label_smoothing: float = 0.1,
+        label_smoothing: float = 0.0,
+        class_weights: torch.Tensor | None = None,
     ):
         super().__init__()
         self.margin = margin
@@ -30,7 +31,9 @@ class StableArcFaceLoss(nn.Module):
         self.weight = nn.Parameter(torch.FloatTensor(num_classes, embedding_size))
         nn.init.xavier_uniform_(self.weight)
 
-        self.ce_loss = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.ce_loss = nn.CrossEntropyLoss(
+            weight=class_weights, label_smoothing=label_smoothing
+        )
 
     def forward(
         self,
@@ -68,7 +71,7 @@ class StableArcFaceLoss(nn.Module):
         ce_loss = self.ce_loss(logits, labels)
         arcface_loss = self.ce_loss(arcface_logits, labels)
 
-        return ce_loss + 0.05 * arcface_loss
+        return ce_loss + 0.25 * arcface_loss
 
 
 class StableBertClassifier(nn.Module):
@@ -87,7 +90,8 @@ class StableBertClassifier(nn.Module):
         hidden_dim: int = 384,
         arcface_margin: float = 0.5,
         arcface_scale: float = 64.0,
-        label_smoothing: float = 0.1,
+        label_smoothing: float = 0.0,
+        class_weights: torch.Tensor | None = None,
     ):
         super().__init__()
         self.bert = AutoModel.from_pretrained(model_name)
@@ -105,6 +109,7 @@ class StableBertClassifier(nn.Module):
             margin=arcface_margin,
             scale=arcface_scale,
             label_smoothing=label_smoothing,
+            class_weights=class_weights,
         )
 
         # Initialize classifier weights
@@ -131,8 +136,9 @@ class StableBertClassifier(nn.Module):
         """
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
 
-        # [CLS] token pooling
-        pooled_output = outputs.last_hidden_state[:, 0, :]
+        # Attention-weighted mean pooling
+        mask = attention_mask.unsqueeze(-1).expand(outputs.last_hidden_state.size()).float()
+        pooled_output = (outputs.last_hidden_state * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
 
         hidden_output = self.activation(self.hidden(self.dropout1(pooled_output)))
         logits = self.classifier(self.dropout2(hidden_output))

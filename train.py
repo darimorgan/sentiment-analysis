@@ -13,9 +13,12 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from torch.utils.data import DataLoader, Subset
 from transformers import AutoTokenizer
 
+from sklearn.utils.class_weight import compute_class_weight
+
 from src.config import Config
 from src.dataset import RatingDataset
 from src.features import FeatureExtractor
+from src.mlm import mlm_pretrain
 from src.model import StableBertClassifier
 from src.trainer import BertTrainer
 
@@ -82,6 +85,8 @@ def main(args: argparse.Namespace) -> None:
         device=args.device,
     )
 
+    config.mlm_epochs = args.mlm_epochs
+
     print(f"Using device: {config.device}")
     print(f"cuML available: {USE_CUML}")
     print(f"Classifier: {args.classifier}")
@@ -125,6 +130,18 @@ def main(args: argparse.Namespace) -> None:
         train_targets = targets
         print("Using all data for training (no test split).")
 
+    # MLM domain pretraining
+    if config.mlm_epochs > 0:
+        mlm_model_path = mlm_pretrain(texts, config)
+        config.model_name = mlm_model_path
+
+    # Compute class weights for imbalanced data
+    class_weight_values = compute_class_weight(
+        "balanced", classes=np.unique(train_targets), y=train_targets
+    )
+    class_weights = torch.tensor(class_weight_values, dtype=torch.float32)
+    print(f"Class weights: {class_weight_values}")
+
     # Initialize
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
     trainer = BertTrainer(config)
@@ -163,6 +180,7 @@ def main(args: argparse.Namespace) -> None:
             num_classes=config.num_classes,
             dropout=config.dropout_rate,
             hidden_dim=config.hidden_dim,
+            class_weights=class_weights,
         )
 
         trained_bert = trainer.train_fold(train_loader, val_loader, model, fold_idx)
@@ -215,7 +233,13 @@ if __name__ == "__main__":
         default="DeepPavlov/rubert-base-cased-conversational",
         help="Pretrained model name or path",
     )
-    parser.add_argument("--epochs", type=int, default=3, help="Number of epochs")
+    parser.add_argument("--epochs", type=int, default=5, help="Number of epochs")
+    parser.add_argument(
+        "--mlm-epochs",
+        type=int,
+        default=2,
+        help="MLM pretraining epochs (0 to skip)",
+    )
     parser.add_argument("--folds", type=int, default=5, help="Number of CV folds")
     parser.add_argument("--batch-size", type=int, default=8, help="Batch size")
 

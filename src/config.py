@@ -20,7 +20,7 @@ class Config:
     # Training
     batch_size: int = 8
     accumulation_steps: int = 4
-    num_epochs: int = 3
+    num_epochs: int = 5
     num_folds: int = 5
     learning_rate: float = 1e-5
     warmup_ratio: float = 0.1
@@ -31,7 +31,12 @@ class Config:
     # ArcFace
     arcface_margin: float = 0.5
     arcface_scale: float = 64.0
-    label_smoothing: float = 0.1
+    label_smoothing: float = 0.0
+
+    # MLM pretraining
+    mlm_epochs: int = 2
+    mlm_learning_rate: float = 5e-5
+    mlm_batch_size: int = 16
 
     # SVC
     svc_c: float = 1.0
