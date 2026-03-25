@@ -185,27 +185,31 @@ def main(args: argparse.Namespace) -> None:
 
         trained_bert = trainer.train_fold(train_loader, val_loader, model, fold_idx)
 
-        # Extract features
-        train_features, train_svm_targets = feature_extractor.extract(
-            trained_bert, train_loader
-        )
-        val_features, val_targets_cv = feature_extractor.extract(
-            trained_bert, val_loader
-        )
+        if args.classifier == "direct":
+            # Evaluate using model's own classification head
+            ensemble_f1 = trainer._evaluate(trained_bert, val_loader)
+        else:
+            # Extract features and train SVC/LogReg
+            train_features, train_svm_targets = feature_extractor.extract(
+                trained_bert, train_loader
+            )
+            val_features, val_targets_cv = feature_extractor.extract(
+                trained_bert, val_loader
+            )
 
-        # Train classifier
-        clf_model = train_classifier(train_features, train_svm_targets, config, args.classifier)
-        joblib.dump(clf_model, config.model_dir / f"fold_{fold_idx}_clf.joblib")
+            clf_model = train_classifier(train_features, train_svm_targets, config, args.classifier)
+            joblib.dump(clf_model, config.model_dir / f"fold_{fold_idx}_clf.joblib")
 
-        # Evaluate ensemble
-        clf_preds = clf_model.predict(val_features)
-        ensemble_f1 = f1_score(val_targets_cv, clf_preds, average="weighted")
+            clf_preds = clf_model.predict(val_features)
+            ensemble_f1 = f1_score(val_targets_cv, clf_preds, average="weighted")
+
+            del clf_model, train_features, val_features
+
         fold_results.append(ensemble_f1)
-
-        print(f"\nFold {fold_idx + 1} Ensemble F1: {ensemble_f1:.4f}")
+        print(f"\nFold {fold_idx + 1} F1: {ensemble_f1:.4f}")
 
         # Cleanup
-        del trained_bert, clf_model, train_features, val_features
+        del trained_bert
         torch.cuda.empty_cache()
         gc.collect()
 
@@ -259,9 +263,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--classifier",
         type=str,
-        choices=["svc", "logreg"],
-        default="svc",
-        help="Classifier type: 'svc' or 'logreg' (default: svc)",
+        choices=["svc", "logreg", "direct"],
+        default="direct",
+        help="Classifier type: 'svc', 'logreg', or 'direct' (default: direct)",
     )
     parser.add_argument(
         "--device",

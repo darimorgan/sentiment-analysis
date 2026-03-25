@@ -1,5 +1,6 @@
 """Domain-adaptive MLM pretraining for BERT."""
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -79,7 +80,7 @@ def mlm_pretrain(texts: list[str], config: Config) -> str:
         optimizer, num_warmup_steps, num_training_steps
     )
 
-    scaler = torch.amp.GradScaler("cuda")
+    scaler = torch.amp.GradScaler("cuda", init_scale=256)
     accumulation_steps = 4
 
     model.train()
@@ -96,17 +97,20 @@ def mlm_pretrain(texts: list[str], config: Config) -> str:
                 loss = outputs.loss / accumulation_steps
 
             scaler.scale(loss).backward()
-            total_loss += loss.item() * accumulation_steps
+
+            loss_val = loss.item() * accumulation_steps
+            if not np.isnan(loss_val):
+                total_loss += loss_val
 
             if (step + 1) % accumulation_steps == 0:
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 scaler.step(optimizer)
                 scaler.update()
-                scheduler.step()
                 optimizer.zero_grad()
+                scheduler.step()
 
-            progress.set_postfix(loss=f"{loss.item() * accumulation_steps:.4f}")
+            progress.set_postfix(loss=f"{loss_val:.4f}")
 
         avg_loss = total_loss / len(data_loader)
         print(f"MLM Epoch {epoch + 1} - Avg Loss: {avg_loss:.4f}")

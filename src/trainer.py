@@ -1,6 +1,6 @@
 """Training utilities for BERT fine-tuning."""
 
-
+import numpy as np
 import torch
 from sklearn.metrics import f1_score
 from torch.optim import AdamW
@@ -137,7 +137,10 @@ class BertTrainer:
                     loss = loss / self.config.accumulation_steps
 
                 scaler.scale(loss).backward()
-                total_train_loss += loss.item() * self.config.accumulation_steps
+
+                loss_val = loss.item() * self.config.accumulation_steps
+                if not np.isnan(loss_val):
+                    total_train_loss += loss_val
 
                 if (batch_idx + 1) % self.config.accumulation_steps == 0:
                     scaler.unscale_(optimizer)
@@ -146,8 +149,8 @@ class BertTrainer:
                     )
                     scaler.step(optimizer)
                     scaler.update()
-                    scheduler.step()
                     optimizer.zero_grad()
+                    scheduler.step()
 
             # Validation
             val_f1 = self._evaluate(model, val_loader)

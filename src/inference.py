@@ -16,17 +16,21 @@ from .model import StableBertClassifier
 
 
 class SentimentPredictor:
-    """Ensemble predictor using fine-tuned BERT + SVC."""
+    """Ensemble predictor using fine-tuned BERT (direct or + SVC/LogReg)."""
 
     def __init__(
         self,
         config: Config,
         model_dir: str | Path | None = None,
+        classifier: str = "direct",
     ):
         self.config = config
         self.model_dir = Path(model_dir) if model_dir else config.model_dir
         self.tokenizer = AutoTokenizer.from_pretrained(config.model_name)
-        self.feature_extractor = FeatureExtractor(config)
+        self.classifier = classifier
+
+        if classifier != "direct":
+            self.feature_extractor = FeatureExtractor(config)
 
         self.bert_models: list[StableBertClassifier] = []
         self.svc_models: list = []
@@ -51,14 +55,13 @@ class SentimentPredictor:
             bert_model.eval()
             self.bert_models.append(bert_model)
 
-            # Load classifier
-            clf_path = self.model_dir / f"fold_{fold_idx}_clf.joblib"
-            clf_model = joblib.load(clf_path)
-            self.svc_models.append(clf_model)
+            # Load classifier (skip for direct mode)
+            if self.classifier != "direct":
+                clf_path = self.model_dir / f"fold_{fold_idx}_clf.joblib"
+                clf_model = joblib.load(clf_path)
+                self.svc_models.append(clf_model)
 
-        print(
-            f"Loaded {len(self.bert_models)} BERT models and {len(self.svc_models)} SVC models"
-        )
+        print(f"Loaded {len(self.bert_models)} BERT models")
 
     def predict(
         self,
@@ -91,16 +94,25 @@ class SentimentPredictor:
 
         all_fold_predictions = []
 
-        for fold_idx, (bert_model, svc_model) in enumerate(
-            zip(self.bert_models, self.svc_models)
-        ):
+        for fold_idx, bert_model in enumerate(self.bert_models):
             print(f"Predicting with fold {fold_idx + 1}...")
 
-            # Extract features
-            features, _ = self.feature_extractor.extract(bert_model, data_loader)
+            if self.classifier == "direct":
+                # Predict using BERT logits directly
+                fold_preds = []
+                with torch.no_grad():
+                    for batch in data_loader:
+                        input_ids = batch["input_ids"].to(self.config.device)
+                        attention_mask = batch["attention_mask"].to(self.config.device)
+                        _, logits, _ = bert_model(input_ids, attention_mask)
+                        preds = torch.argmax(logits, dim=1).cpu().numpy()
+                        fold_preds.extend(preds)
+                fold_preds = np.array(fold_preds)
+            else:
+                # Extract features + classifier prediction
+                features, _ = self.feature_extractor.extract(bert_model, data_loader)
+                fold_preds = self.svc_models[fold_idx].predict(features)
 
-            # SVC prediction
-            fold_preds = svc_model.predict(features)
             all_fold_predictions.append(fold_preds)
 
         # Ensemble with majority voting

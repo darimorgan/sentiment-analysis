@@ -22,7 +22,7 @@ def main(args: argparse.Namespace) -> None:
     print(f"Model: {config.model_name}")
 
     # Initialize predictor
-    predictor = SentimentPredictor(config, model_dir=args.model_dir)
+    predictor = SentimentPredictor(config, model_dir=args.model_dir, classifier=args.classifier)
     predictor.load_models(num_folds=args.num_folds)
 
     if args.input_file:
@@ -80,6 +80,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--num-folds", type=int, default=5, help="Number of ensemble folds"
+    )
+    parser.add_argument(
+        "--classifier",
+        type=str,
+        choices=["svc", "logreg", "direct"],
+        default="direct",
+        help="Classifier type (must match training)",
     )
     parser.add_argument(
         "--num-classes", type=int, default=5, help="Number of classes"
