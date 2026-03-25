@@ -79,25 +79,34 @@ def mlm_pretrain(texts: list[str], config: Config) -> str:
         optimizer, num_warmup_steps, num_training_steps
     )
 
+    scaler = torch.amp.GradScaler("cuda")
+    accumulation_steps = 4
+
     model.train()
     for epoch in range(config.mlm_epochs):
         total_loss = 0
+        optimizer.zero_grad()
         progress = tqdm(data_loader, desc=f"MLM Epoch {epoch + 1}/{config.mlm_epochs}")
 
-        for batch in progress:
+        for step, batch in enumerate(progress):
             batch = {k: v.to(config.device) for k, v in batch.items()}
 
-            outputs = model(**batch)
-            loss = outputs.loss
+            with torch.amp.autocast("cuda"):
+                outputs = model(**batch)
+                loss = outputs.loss / accumulation_steps
 
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-            scheduler.step()
-            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            total_loss += loss.item() * accumulation_steps
 
-            total_loss += loss.item()
-            progress.set_postfix(loss=f"{loss.item():.4f}")
+            if (step + 1) % accumulation_steps == 0:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                scaler.step(optimizer)
+                scaler.update()
+                scheduler.step()
+                optimizer.zero_grad()
+
+            progress.set_postfix(loss=f"{loss.item() * accumulation_steps:.4f}")
 
         avg_loss = total_loss / len(data_loader)
         print(f"MLM Epoch {epoch + 1} - Avg Loss: {avg_loss:.4f}")
