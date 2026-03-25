@@ -35,7 +35,7 @@ class Config:
 
     # MLM pretraining
     mlm_epochs: int = 2
-    mlm_learning_rate: float = 5e-5
+    mlm_learning_rate: float = 2e-5
     mlm_batch_size: int = 4
 
     # SVC
