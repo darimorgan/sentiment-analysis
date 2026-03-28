@@ -4,32 +4,34 @@ Fine-tuned BERT with ArcFace loss + SVC/LogReg ensemble for multi-class sentimen
 
 ## Notebooks
 
-| Notebook | Description | Link |
-|----------|-------------|------|
-| Fine-tuned BERT + SVC | Main solution with ArcFace loss and ensemble | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/darimorgan/sentiment-analysis/blob/main/notebooks/bert_sentiment.ipynb) |
-| Baselines | Logistic Regression & CatBoost with frozen BERT | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/darimorgan/sentiment-analysis/blob/main/notebooks/logistic_regression_catboost_baseline.ipynb) |
+| Notebook                                                   | Description                                     | Link                                                                                                                                                                                                                 |
+|------------------------------------------------------------|-------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Fine-tuned BERT ai-forever/ruRoBERTa-large                 | Main solution with ArcFace loss and ensemble    | Current source code                                                                                                                                                                                                  |
+| Fine-tuned BERT DeepPavlov/rubert-base-cased-conversational + SVC | Solution with ArcFace loss and ensemble         | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/darimorgan/sentiment-analysis/blob/main/notebooks/bert_sentiment.ipynb)                        |
+| Baselines                                                  | Logistic Regression & CatBoost with frozen BERT DeepPavlov/rubert-base-cased-conversational| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/darimorgan/sentiment-analysis/blob/main/notebooks/logistic_regression_catboost_baseline.ipynb) |
 
 ## Results
 
-| Model | Test F1    |
-|-------|------------|
-| Frozen BERT + Logistic Regression | 0.6200     |
-| Frozen BERT + CatBoost | ~0.5972    |
-| **Fine-tuned BERT + SVC Ensemble** | **0.6599** |
+| Model                                          | Test F1      |
+|------------------------------------------------|--------------|
+| Frozen ruBERT + Logistic Regression            | 0.6200       |
+| Frozen ruBERT + CatBoost                       | ~0.5972      |
+| Fine-tuned ruBERT + SVC Ensemble               | 0.6599       |
+| Fine-tuned ruBERT + LogReg Ensemble            | 0.6600       |
+| **Fine-tuned ruRoBERTa-large + Direct (2 folds, 3 epochs)** | **0.6840** |
 
 ## Approach
 
-1. **Fine-tune BERT** (default: `DeepPavlov/rubert-base-cased-conversational`, configurable via `--model-name`) with:
+1. **Fine-tune BERT** (default: `ai-forever/ruRoBERTa-large`, configurable via `--model-name`) with:
    - ArcFace loss for better class separation
    - Layer-wise Learning Rate Decay (LLRD)
-   - Mixed precision training
+   - Mixed precision training (AMP)
    - Gradient accumulation
+   - Mean pooling + hidden layer (384-dim)
 
-2. **Extract features** from fine-tuned BERT (384-dim hidden layer)
+2. **Direct classification** or **extract features** from fine-tuned BERT for SVC/LogReg
 
-3. **Train classifier** (SVC or LogReg) on extracted features
-
-4. **Ensemble** predictions from 5-fold cross-validation using majority voting
+3. **Ensemble** predictions from cross-validation folds using majority voting
 
 ## Project Structure
 
@@ -68,17 +70,17 @@ uv sync --extra gpu
 ### Training
 
 ```bash
-# With default ruBERT model and SVC
-python train.py --data-path data/train.csv --epochs 3 --folds 5
+# Direct classification with ruRoBERTa-large (best result)
+python train.py --data-path data/train.csv --epochs 3 --folds 3 --classifier direct --model-name ai-forever/ruRoBERTa-large --split no --mlm-epochs 0
+
+# With SVC on top of BERT features
+python train.py --data-path data/train.csv --classifier svc
 
 # With LogReg instead of SVC
 python train.py --data-path data/train.csv --classifier logreg
 
-# With different number of classes
-python train.py --data-path data/train.csv --num-classes 3
-
-# With another HuggingFace model
-python train.py --data-path data/train.csv --model-name bert-base-multilingual-cased
+# With default ruBERT model
+python train.py --data-path data/train.csv --model-name DeepPavlov/rubert-base-cased-conversational
 
 # Force specific device
 python train.py --data-path data/train.csv --device cuda
@@ -91,11 +93,12 @@ python train.py --data-path data/train.csv --device cpu
 | Argument | Default | Description |
 |----------|---------|-------------|
 | `--data-path` | required | Path to CSV data |
-| `--classifier` | `svc` | Classifier type: `svc` or `logreg` |
+| `--classifier` | `direct` | Classifier type: `svc`, `logreg`, or `direct` |
 | `--num-classes` | `5` | Number of classes |
-| `--epochs` | `3` | Number of training epochs |
+| `--epochs` | `5` | Number of training epochs |
 | `--folds` | `5` | Number of CV folds |
 | `--batch-size` | `8` | Batch size |
+| `--mlm-epochs` | `2` | MLM pretraining epochs (0 to skip) |
 | `--model-name` | `DeepPavlov/rubert-base-cased-conversational` | HuggingFace model |
 | `--split` | `yes` | `yes` to split train/test, `no` to use all data |
 | `--device` | `auto` | Device: `cuda`, `cpu`, `mps`, or `auto` |
@@ -134,7 +137,8 @@ Predicted Rating: 1/5
 
 - **ArcFace Loss**: Adds angular margin to embeddings for better class separation
 - **LLRD**: Lower learning rates for lower BERT layers to preserve pretrained knowledge
-- **5-Fold CV Ensemble**: Majority voting across folds reduces variance
+- **CV Ensemble**: Majority voting across folds reduces variance
+- **Direct mode**: Use BERT's own classification head without SVC/LogReg
 
 ## Dataset
 
