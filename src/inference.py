@@ -8,6 +8,7 @@ import torch
 from scipy.stats import mode
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
+from tqdm import tqdm
 
 from .config import Config
 from .dataset import RatingDataset
@@ -49,7 +50,8 @@ class SentimentPredictor:
                 hidden_dim=self.config.hidden_dim,
             )
             bert_model.load_state_dict(
-                torch.load(bert_path, map_location=self.config.device)
+                torch.load(bert_path, map_location=self.config.device),
+                strict=False
             )
             bert_model.to(self.config.device)
             bert_model.eval()
@@ -101,7 +103,7 @@ class SentimentPredictor:
                 # Predict using BERT logits directly
                 fold_preds = []
                 with torch.no_grad():
-                    for batch in data_loader:
+                    for batch in tqdm(data_loader, desc=f"Fold {fold_idx+1}"):
                         input_ids = batch["input_ids"].to(self.config.device)
                         attention_mask = batch["attention_mask"].to(self.config.device)
                         _, logits, _ = bert_model(input_ids, attention_mask)
