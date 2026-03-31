@@ -1,6 +1,6 @@
 # Russian Sentiment Analysis
 
-Fine-tuned BERT with ArcFace loss + SVC/LogReg ensemble for multi-class sentiment classification on Russian text reviews.
+Fine-tuned BERT with ArcFace loss for multi-class sentiment classification on text reviews.
 
 ## Notebooks
 
@@ -22,7 +22,7 @@ Fine-tuned BERT with ArcFace loss + SVC/LogReg ensemble for multi-class sentimen
 
 ## Approach
 
-1. **Fine-tune BERT** (default: `ai-forever/ruRoBERTa-large`, configurable via `--model-name`) with:
+1. **Fine-tune BERT** (default: `DeepPavlov/rubert-base-cased-conversational`, configurable via `--model-name`) with:
    - ArcFace loss for better class separation
    - Layer-wise Learning Rate Decay (LLRD)
    - Mixed precision training (AMP)
@@ -43,9 +43,10 @@ sentiment-analysis/
 │   ├── model.py        # BERT + ArcFace model
 │   ├── trainer.py      # Training loop with LLRD
 │   ├── features.py     # Feature extraction
+│   ├── mlm.py          # MLM domain pretraining
 │   └── inference.py    # Prediction pipeline
 ├── notebooks/
-│   ├── bert_sentiment.ipynb                    # Main experiment
+│   ├── bert_sentiment.ipynb                    # Fine-tuned ruBERT + SVC experiment
 │   └── logistic_regression_catboost_baseline.ipynb  # Baselines
 ├── train.py            # Training script
 ├── predict.py          # Inference script
@@ -106,7 +107,7 @@ python train.py --data-path data/train.csv --device cpu
 ### Inference
 
 ```bash
-# Single text
+# Single text (direct mode, default)
 python predict.py --text "Отличный магазин, всем рекомендую!"
 
 # Batch prediction
@@ -117,6 +118,9 @@ python predict.py --input-file data/test.csv --label-column rate
 
 # With another model (must match the model used during training)
 python predict.py --text "Great product!" --model-name bert-base-multilingual-cased
+
+# With SVC classifier (must match training)
+python predict.py --input-file data/test.csv --classifier svc 
 
 # With different number of classes (must match training)
 python predict.py --input-file data/test.csv --num-classes 3
@@ -138,6 +142,7 @@ Predicted Rating: 1/5
 - **ArcFace Loss**: Adds angular margin to embeddings for better class separation
 - **LLRD**: Lower learning rates for lower BERT layers to preserve pretrained knowledge
 - **CV Ensemble**: Majority voting across folds reduces variance
+- **MLM Pretraining**: Optional domain-adaptive masked language model pretraining on task data
 - **Direct mode**: Use BERT's own classification head without SVC/LogReg
 
 ## Dataset
