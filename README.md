@@ -1,4 +1,4 @@
-# Russian Sentiment Analysis
+# Sentiment Analysis
 
 Fine-tuned BERT with ArcFace loss for multi-class sentiment classification on text reviews.
 
